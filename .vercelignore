@@ -1,0 +1,5 @@
+# Ignore Python dependencies and local scripts during Vercel build
+requirements.txt
+src/
+*.bat
+tests/
