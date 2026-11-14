@@ -28,7 +28,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Serve static files (HTML, CSS, JS)
+// Serve static files (HTML, CSS, JS) from public and templates
+app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'templates')));
 
 // Initialize OpenAI client (supports both OpenAI and OpenRouter)
@@ -45,7 +46,7 @@ if (!apiKey || !apiKey.startsWith('sk-or-')) {
   console.warn('[Server] Make sure .env file has: OPENAI_API_KEY=sk-or-v1-...');
 }
 
-let openai;
+let openai = null;
 
 if (apiKey && apiKey.startsWith('sk-or-')) {
   // OpenRouter API key detected
@@ -59,7 +60,7 @@ if (apiKey && apiKey.startsWith('sk-or-')) {
   });
   console.log('[Server] ✅ Using OpenRouter API');
   console.log('[Server] API Key:', apiKey.substring(0, 20) + '...');
-} else if (apiKey) {
+} else if (apiKey && apiKey.startsWith('sk-')) {
   // Standard OpenAI API
   openai = new OpenAI({
     apiKey: apiKey,
@@ -67,8 +68,7 @@ if (apiKey && apiKey.startsWith('sk-or-')) {
   console.log('[Server] ✅ Using OpenAI API');
   console.log('[Server] API Key:', apiKey.substring(0, 20) + '...');
 } else {
-  console.error('[Server] ❌ ERROR: No API key found in environment variables!');
-  console.error('[Server] Make sure OPENAI_API_KEY is set in .env file');
+  console.log('[Server] Note: OPENAI_API_KEY is not an OpenAI key (sk-...). Using Google Gemini if configured.');
 }
 
 // Conversation history (in-memory, resets on server restart)
@@ -234,20 +234,27 @@ app.post('/api/chat', async (req, res) => {
     let usedFallback = false;
 
     try {
-      // Check if OpenAI client is initialized
+      // If OpenAI client is not initialized, check for Google Gemini directly
       if (!openai) {
-        console.error('[API] ERROR: OpenAI client is not initialized!');
-        throw new Error('OpenAI client not initialized. Check API key.');
-      }
-
-      // Use appropriate model based on API provider - try multiple formats for OpenRouter
-      let model;
-      if (apiKey && apiKey.startsWith('sk-or-')) {
-        // Try OpenRouter models in order of preference
-        model = 'openai/gpt-3.5-turbo';  // OpenRouter format
+        if (process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY) {
+          console.log('[API] Primary OpenAI client not configured, calling Google Gemini directly...');
+          const geminiResp = await callGemini(message);
+          if (geminiResp) {
+            aiMessage = geminiResp;
+            usedFallback = false;
+          }
+        }
+        if (!aiMessage) {
+          throw new Error('No AI client initialized. Check API keys.');
+        }
       } else {
-        model = 'gpt-3.5-turbo';  // OpenAI format
-      }
+        // Use appropriate model based on API provider - try multiple formats for OpenRouter
+        let model;
+        if (apiKey && apiKey.startsWith('sk-or-')) {
+          model = 'openai/gpt-3.5-turbo';
+        } else {
+          model = 'gpt-3.5-turbo';
+        }
       
       console.log('[API] Using model:', model);
       console.log('[API] API Key type:', apiKey && apiKey.startsWith('sk-or-') ? 'OpenRouter' : 'OpenAI');
@@ -268,7 +275,8 @@ app.post('/api/chat', async (req, res) => {
       aiMessage = response.choices[0].message.content;
       console.log('[API] AI Response (SUCCESS):', aiMessage.substring(0, 100) + '...');
       usedFallback = false;
-    } catch (openaiError) {
+    }
+  } catch (openaiError) {
       console.error('[API] ========== API ERROR ==========');
       console.error('[API] Error Type:', openaiError.constructor.name);
       console.error('[API] Error Message:', openaiError.message);
@@ -426,16 +434,21 @@ app.use((req, res) => {
   });
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log('\n[WebServer] All registered routes:');
-  console.log('  GET  / (serves index.html)');
-  console.log('  POST /api/chat');
-  console.log('  GET  /api/status');
-  console.log('  GET  /api/test');
-  console.log('  POST /api/reset');
+// Start server only when running directly (node server.js), not when imported by Vercel serverless function
+const isDirectRun = process.argv[1] ? fileURLToPath(import.meta.url) === path.resolve(process.argv[1]) : false;
+if (isDirectRun && !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log('\n[WebServer] All registered routes:');
+    console.log('  GET  / (serves index.html)');
+    console.log('  POST /api/chat');
+    console.log('  GET  /api/status');
+    console.log('  GET  /api/test');
+    console.log('  POST /api/reset');
 
-  console.log(`\n🌐 Web Server Starting at http://localhost:${PORT}`);
-  console.log('🎨 Open your browser and visit the URL above');
-  console.log('[WebServer] Press Ctrl+C to stop the server\n');
-});
+    console.log(`\n🌐 Web Server Starting at http://localhost:${PORT}`);
+    console.log('🎨 Open your browser and visit the URL above');
+    console.log('[WebServer] Press Ctrl+C to stop the server\n');
+  });
+}
+
+export default app;

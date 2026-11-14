@@ -5,6 +5,7 @@
 [![Three.js](https://img.shields.io/badge/Three.js-r128-000000?style=flat-square&logo=three.js&logoColor=white)](https://threejs.org/)
 [![Flask](https://img.shields.io/badge/Flask-3.x-000000?style=flat-square&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com/)
+[![Vercel](https://img.shields.io/badge/Vercel-Deployed-000000?style=flat-square&logo=vercel&logoColor=white)](https://vercel.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 
 An interactive, multi-modal AI Voice Assistant powered by **Three.js**, **MediaPipe**, **Google Gemini**, and **OpenAI / OpenRouter**. Features a real-time reactive 3D neon particle swarm, webcam gesture control, audio reactivity, continuous speech recognition, and offline text-to-speech.
@@ -115,6 +116,10 @@ flowchart TD
 
 ```
 par_4.0/
+├── api/
+│   └── index.js              # Vercel Serverless Function entry point
+├── public/
+│   └── index.html            # Static frontend for Vercel CDN deployment
 ├── src/
 │   ├── assistant.py          # Central CLI entry point (voice, text, and web modes)
 │   ├── ai_processor.py       # Multi-model AI engine (OpenAI, OpenRouter, Google Gemini)
@@ -133,6 +138,7 @@ par_4.0/
 ├── server.js                 # Express.js backend alternative
 ├── package.json              # Node.js dependencies & scripts
 ├── requirements.txt          # Python dependencies
+├── vercel.json               # Vercel deployment & routing configuration
 ├── QUICKSTART.md             # Concise quick start instructions
 ├── README.md                 # Complete project documentation
 └── .env                      # API keys and environment configuration
@@ -264,6 +270,38 @@ node server.js
 RESTART_SERVER.bat
 ```
 The interface is served on `http://localhost:5000` with the same Three.js frontend.
+
+---
+
+### 5. Deploy to Vercel (Production Cloud Hosting)
+
+This repository is pre-configured with `vercel.json`, `api/index.js` (Serverless Function), and `public/index.html` (Edge CDN).
+
+#### Option A: Deploy via GitHub (Recommended)
+1. Commit and push your changes to GitHub:
+   ```bash
+   git add .
+   git commit -m "Configure Vercel deployment"
+   git push origin main
+   ```
+2. Open **[vercel.com/new](https://vercel.com/new)** and import the **`ParticlesAI`** repository.
+3. Under **Environment Variables**, add:
+   - `GOOGLE_API_KEY`: Your Google Gemini API key
+   - `OPENAI_API_KEY`: *(Optional)* Your OpenAI or OpenRouter key
+4. Click **Deploy**. Vercel will build and launch your live URL (e.g. `https://particles-ai.vercel.app`).
+5. Every future `git push` automatically redeploys your updates.
+
+#### Option B: Deploy via Vercel CLI
+```bash
+# 1. Log in to Vercel
+vercel login
+
+# 2. Deploy to preview environment
+vercel
+
+# 3. Add your environment variables in Vercel project settings, then deploy to production
+vercel --prod
+```
 
 ---
 
