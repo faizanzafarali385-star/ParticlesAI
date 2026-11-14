@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Voice Assistant - Ultra-Bright Neon Core</title>
+    
+    <style>
+        /* --- CORE STYLES --- */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #050505; /* Very dark grey, not pure black, for contrast */
+            font-family: 'Courier New', Courier, monospace;
+            color: white; 
+            user-select: none;
+        }
+        
+        #canvas-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; }
+
+        /* --- UI PANEL --- */
+        #ui-panel {
+            position: absolute; top: 20px; right: 20px; width: 280px;
+            background: rgba(0, 0, 0, 0.6); 
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 20px; border-radius: 8px; 
+            z-index: 10;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        h2 { margin: 0 0 15px 0; font-size: 14px; color: #00ffff; text-transform: uppercase; text-align: center; letter-spacing: 2px; text-shadow: 0 0 10px #00ffff; }
+        
+        .grid-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+        
+        button {
+            background: rgba(0, 255, 255, 0.1); border: 1px solid rgba(0, 255, 255, 0.2); color: #fff;
+            padding: 10px; cursor: pointer; transition: all 0.2s; 
+            font-size: 11px; font-weight: bold; text-transform: uppercase;
+        }
+        button:hover { background: rgba(0, 255, 255, 0.4); box-shadow: 0 0 15px #00ffff; }
+        button.active { 
+            background: #00ffff; color: #000; border-color: #fff; 
+            box-shadow: 0 0 20px #00ffff; 
+        }
+
+        /* METRICS */
+        .metric { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 5px; color: #aaa; }
+        .val { color: #fff; font-weight: bold; }
+        
+        /* CHAT INPUT */
+        #chat-input {
+            width: 100%; padding: 8px; margin-bottom: 10px; 
+            background: rgba(0, 255, 255, 0.05); border: 1px solid rgba(0, 255, 255, 0.3);
+            color: #fff; font-family: 'Courier New', monospace; font-size: 11px;
+            border-radius: 4px;
+            flex: 1;
+        }
+        #chat-input:focus { 
+            outline: none; background: rgba(0, 255, 255, 0.1); 
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
+        }
+
+        #voice-btn {
+            padding: 8px 12px; margin-bottom: 10px;
+            background: rgba(0, 255, 255, 0.1); border: 1px solid rgba(0, 255, 255, 0.2);
+            color: #fff; font-weight: bold; cursor: pointer; transition: all 0.2s;
+            font-size: 16px;
+        }
+        #voice-btn:hover { background: rgba(0, 255, 255, 0.3); box-shadow: 0 0 10px #00ffff; }
+
+        #voice-btn.listening { background: #00ffff; color: #000; box-shadow: 0 0 18px #00ffff; animation: pulse 1s infinite; }
+        #voice-btn.speaking { background: #ff00aa; color: #fff; box-shadow: 0 0 20px #ff00aa; animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        /* BUTTON ROW */
+        .btn-row { display: flex; gap: 8px; margin-bottom: 10px; }
+
+        #send-btn {
+            flex: 3;
+            background: rgba(0, 255, 255, 0.1); border: 1px solid rgba(0, 255, 255, 0.2);
+            color: #00ffff; font-weight: bold; cursor: pointer; transition: all 0.2s;
+        }
+        #send-btn:hover { background: rgba(0, 255, 255, 0.3); box-shadow: 0 0 10px #00ffff; }
+
+        #clear-btn {
+            flex: 1;
+            background: rgba(255, 0, 170, 0.1); border: 1px solid rgba(255, 0, 170, 0.3);
+            color: #ff00aa; font-weight: bold; cursor: pointer; transition: all 0.2s;
+        }
+        #clear-btn:hover { 
+            background: rgba(255, 0, 170, 0.3); 
+            box-shadow: 0 0 15px #ff00aa; 
+            color: #fff;
+            border-color: #ff00aa;
+        }
+
+        #chat-log {
+            border-top: 1px solid rgba(0, 255, 255, 0.2); padding-top: 10px;
+            max-height: 300px; overflow-y: auto; font-size: 10px;
+        }
+
+        .chat-msg { margin-bottom: 8px; padding: 5px; border-left: 2px solid #00ffff; padding-left: 8px; }
+        .chat-msg.user { color: #00ffff; border-left-color: #00ffff; }
+        .chat-msg.ai { color: #aaa; border-left-color: #ff00aa; }
+
+        /* VIDEO PREVIEW */
+        #video-preview {
+            position: absolute; bottom: 20px; right: 20px; width: 140px; height: 105px;
+            border: 2px solid #333; z-index: 10; background: #000; 
+            transform: scaleX(-1); /* Mirror effect */
+            opacity: 0.5; transition: opacity 0.3s;
+        }
+        #video-preview:hover { opacity: 1; border-color: #00ffff; }
+
+        /* OVERLAY */
+        #overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; z-index: 100; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            transition: opacity 0.5s;
+        }
+        
+        #start-btn {
+            margin-top: 30px; padding: 20px 60px; font-size: 24px;
+            background: transparent; color: #00ffff; border: 2px solid #00ffff;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            text-transform: uppercase; letter-spacing: 4px;
+        }
+        #start-btn:hover { background: #00ffff; color: #000; box-shadow: 0 0 60px #00ffff; }
+
+        .hidden { opacity: 0; pointer-events: none; }
+    </style>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+</head>
+<body>
+
+    <div id="overlay">
+        <h1 style="color:white; font-weight:100; letter-spacing:5px;">AI VOICE ASSISTANT</h1>
+        <p style="color:#888;">VISUALS: MAXIMIZED | GLOW: ENABLED</p>
+        <button id="start-btn">ENGAGE</button>
+    </div>
+
+    <div id="canvas-container"></div>
+    <video id="video-preview" playsinline></video>
+
+    <div id="ui-panel">
+        <h2>Construct</h2>
+        <div class="grid-buttons">
+            <button class="tpl-btn active" data-shape="sphere">🔮 Sphere</button>
+            <button class="tpl-btn" data-shape="heart">❤️ Heart</button>
+            <button class="tpl-btn" data-shape="helix">🧬 Helix</button>
+            <button class="tpl-btn" data-shape="torus">🍩 Torus</button>
+            <button class="tpl-btn" data-shape="ring">💍 Ring</button>
+            <button class="tpl-btn" data-shape="cloud">☁️ Cloud</button>
+        </div>
+
+        <div class="metric"><span>HAND</span><span class="val" id="h-stat">Scanning...</span></div>
+        <div class="metric"><span>PINCH</span><span class="val" id="p-stat">0%</span></div>
+        <div class="metric"><span>AUDIO</span><span class="val" id="a-stat">0%</span></div>
+
+        <h2 style="margin-top: 20px;">Chat</h2>
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+            <input type="text" id="chat-input" placeholder="Type or click mic...">
+            <button id="voice-btn" title="Click to speak">🎤</button>
+        </div>
+        
+        <div class="btn-row">
+            <button id="send-btn">SEND</button>
+            <button id="clear-btn">CLR</button>
+        </div>
+
+        <div id="chat-log"></div>
+    </div>
+
+    <script>
+        // --- HIGH INTENSITY CONFIG ---
+        const CONFIG = {
+            count: 7000,           
+            size: 0.6,             // Much Bigger particles
+            bloomStrength: 3.5,    // Extreme Glow
+            bloomRadius: 0.8,      // Wide Glow
+            bloomThreshold: 0,     // 0 = Glow EVERYTHING
+            colorBase: 0x00ffff,   // Cyan
+            colorHot: 0xff00aa     // Magenta
+        };
+
+        let scene, camera, renderer, composer;
+        let particles, geometry, material;
+        let positions, targetPositions, colors;
+        let audioCtx, analyser, dataArray;
+        let handX = 0.5, handPinch = 0;
+        let clock = new THREE.Clock();
+
+        // --- 1. SETUP THREE.JS ---
+        function init() {
+            scene = new THREE.Scene();
+            // Dark fog to fade distant particles
+            scene.fog = new THREE.FogExp2(0x050505, 0.02);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 40;
+
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: false, // Off for performance with bloom
+                powerPreference: "high-performance" 
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.getElementById('canvas-container').appendChild(renderer.domElement);
+
+            // --- BLOOM POST-PROCESSING ---
+            const renderScene = new THREE.RenderPass(scene, camera);
+            
+            const bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                CONFIG.bloomStrength,
+                CONFIG.bloomRadius,
+                CONFIG.bloomThreshold
+            );
+
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            createParticles();
+            setShape('sphere');
+            animate();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                composer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        // --- 2. PARTICLE SYSTEM ---
+        function createParticles() {
+            geometry = new THREE.BufferGeometry();
+            positions = new Float32Array(CONFIG.count * 3);
+            targetPositions = new Float32Array(CONFIG.count * 3);
+            colors = new Float32Array(CONFIG.count * 3);
+
+            const c = new THREE.Color(CONFIG.colorBase);
+
+            for (let i = 0; i < CONFIG.count; i++) {
+                let i3 = i * 3;
+                positions[i3] = (Math.random()-0.5)*100;
+                positions[i3+1] = (Math.random()-0.5)*100;
+                positions[i3+2] = (Math.random()-0.5)*100;
+
+                colors[i3] = c.r;
+                colors[i3+1] = c.g;
+                colors[i3+2] = c.b;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            // Create a "Solid Core" texture for maximum visibility
+            const canvas = document.createElement('canvas');
+            canvas.width = 64; canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+            const g = ctx.createRadialGradient(32,32,0, 32,32,32);
+            g.addColorStop(0, 'rgba(255,255,255,1)');    // 100% Solid White Center
+            g.addColorStop(0.3, 'rgba(255,255,255,0.8)'); // High brightness mid
+            g.addColorStop(1, 'rgba(0,0,0,0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(0,0,64,64);
+            const tex = new THREE.CanvasTexture(canvas);
+
+            material = new THREE.PointsMaterial({
+                size: CONFIG.size,
+                map: tex,
+                vertexColors: true,
+                blending: THREE.AdditiveBlending,
+                depthWrite: false,
+                transparent: true,
+                opacity: 1.0 // Max opacity
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+        }
+
+        // --- 3. SHAPE MATH ---
+        function setShape(type) {
+            for (let i = 0; i < CONFIG.count; i++) {
+                let i3 = i * 3;
+                let x,y,z;
+                
+                // Random spherical coords
+                const u = Math.random();
+                const v = Math.random();
+                const t = 2 * Math.PI * u;
+                const p = Math.acos(2 * v - 1);
+
+                if(type === 'sphere') {
+                    const r = 15;
+                    x = r * Math.sin(p) * Math.cos(t);
+                    y = r * Math.sin(p) * Math.sin(t);
+                    z = r * Math.cos(p);
+                } 
+                else if(type === 'heart') {
+                    // Larger scale heart
+                    x = 18 * Math.pow(Math.sin(t), 3);
+                    y = 15 * Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t);
+                    z = (Math.random()-0.5) * 10;
+                    // Scale down slightly
+                    x*=0.8; y*=0.8;
+                }
+                else if(type === 'torus') {
+                    const R = 12, r = 4;
+                    const tub = v * Math.PI * 2;
+                    x = (R + r * Math.cos(tub)) * Math.cos(t);
+                    y = (R + r * Math.cos(tub)) * Math.sin(t);
+                    z = r * Math.sin(tub);
+                }
+                else if(type === 'helix') {
+                    const h = (i/CONFIG.count)*40 - 20;
+                    const r = 8;
+                    const ang = h * 0.5;
+                    x = r * Math.cos(ang);
+                    z = r * Math.sin(ang);
+                    y = h;
+                    // Double strand
+                    if(i%2==0) { x = -x; z = -z; }
+                }
+                else if(type === 'ring') {
+                    const r = 15 + Math.random()*2;
+                    const ang = u * Math.PI * 2;
+                    x = r * Math.cos(ang);
+                    z = r * Math.sin(ang);
+                    y = (Math.random()-0.5)*2;
+                }
+                else if(type === 'cloud') {
+                    x = (Math.random()-0.5)*40;
+                    y = (Math.random()-0.5)*20;
+                    z = (Math.random()-0.5)*20;
+                }
+
+                targetPositions[i3] = x;
+                targetPositions[i3+1] = y;
+                targetPositions[i3+2] = z;
+            }
+        }
+
+        // --- 4. ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = clock.getElapsedTime();
+
+            // AUDIO ANALYSIS
+            let bass = 0, treble = 0;
+            if (analyser) {
+                analyser.getByteFrequencyData(dataArray);
+                // Bass (low freq)
+                let bSum = 0; for(let i=0; i<10; i++) bSum+=dataArray[i];
+                bass = (bSum/10)/255; 
+                // Treble (high freq)
+                let tSum = 0; for(let i=100; i<200; i++) tSum+=dataArray[i];
+                treble = (tSum/100)/255;
+                
+                document.getElementById('a-stat').innerText = Math.round(bass*100) + "%";
+            }
+
+            // ROTATION (Based on Hand X)
+            // Center is 0.5. Left < 0.5, Right > 0.5
+            const rotSpeed = (handX - 0.5) * 0.05;
+            particles.rotation.y += rotSpeed;
+            particles.rotation.z = Math.sin(time * 0.5) * 0.1;
+
+            const pos = particles.geometry.attributes.position.array;
+            const col = particles.geometry.attributes.color.array;
+
+            const baseC = new THREE.Color(CONFIG.colorBase);
+            const hotC = new THREE.Color(CONFIG.colorHot);
+            const whiteC = new THREE.Color(0xffffff);
+
+            // HAND PINCH LOGIC (0 = open, 1 = pinched)
+            // When pinched, we want explosion/implosion effect
+            const condense = 1 - (handPinch * 0.8); // Shrink to 20% size
+
+            for (let i = 0; i < CONFIG.count; i++) {
+                let i3 = i * 3;
+
+                // Physics: Move towards target
+                let tx = targetPositions[i3] * condense;
+                let ty = targetPositions[i3+1] * condense;
+                let tz = targetPositions[i3+2] * condense;
+
+                // Audio Expansion (Beat)
+                if(bass > 0.1) {
+                    const explosion = 1 + (bass * 0.8);
+                    tx *= explosion;
+                    ty *= explosion;
+                    tz *= explosion;
+                }
+
+                // Apply velocity
+                pos[i3] += (tx - pos[i3]) * 0.05;
+                pos[i3+1] += (ty - pos[i3+1]) * 0.05;
+                pos[i3+2] += (tz - pos[i3+2]) * 0.05;
+
+                // Audio Jitter (Treble)
+                if(treble > 0.1) {
+                    pos[i3] += (Math.random()-0.5) * treble;
+                    pos[i3+1] += (Math.random()-0.5) * treble;
+                    pos[i3+2] += (Math.random()-0.5) * treble;
+                }
+
+                // COLOR MIXING
+                // We multiply intensity to force BLOOM
+                let dist = Math.sqrt(pos[i3]*pos[i3] + pos[i3+1]*pos[i3+1]);
+                let mix = (dist / 20) + (handPinch); 
+                
+                // Clone base color
+                let c = baseC.clone().lerp(hotC, mix);
+                
+                // Flash white on kick
+                if(bass > 0.6) c.lerp(whiteC, bass);
+
+                // OVERDRIVE COLOR for extra glow
+                // This is the secret sauce for neon
+                const boost = 1.5; 
+                col[i3] = c.r * boost;
+                col[i3+1] = c.g * boost;
+                col[i3+2] = c.b * boost;
+            }
+
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.color.needsUpdate = true;
+
+            composer.render();
+        }
+
+        // --- 5. INPUT SYSTEMS ---
+        document.getElementById('start-btn').addEventListener('click', () => {
+            document.getElementById('overlay').classList.add('hidden');
+            init();
+            initAudio();
+            initHands();
+        });
+
+        document.querySelectorAll('.tpl-btn').forEach(b => {
+            b.addEventListener('click', (e) => {
+                document.querySelectorAll('.tpl-btn').forEach(btn => btn.classList.remove('active'));
+                e.target.classList.add('active');
+                setShape(e.target.dataset.shape);
+            });
+        });
+
+        // --- CHAT SYSTEM ---
+        const chatLog = document.getElementById('chat-log');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const voiceBtn = document.getElementById('voice-btn');
+        const clearBtn = document.getElementById('clear-btn');
+
+        // Speech Recognition setup (safe)
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        let isListening = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+        } else {
+            // Disable voice if not supported
+            if (voiceBtn) {
+                voiceBtn.disabled = true;
+                voiceBtn.title = 'Speech recognition not supported in this browser';
+            }
+        }
+
+        function addChatMessage(text, sender) {
+            const msg = document.createElement('div');
+            msg.className = `chat-msg ${sender}`;
+            msg.textContent = text;
+            chatLog.appendChild(msg);
+            chatLog.scrollTop = chatLog.scrollHeight;
+        }
+
+        // Voice button click handler
+        voiceBtn.addEventListener('click', () => {
+            if (!recognition) {
+                addChatMessage('Speech recognition not supported in this browser.', 'ai');
+                return;
+            }
+
+            if (isListening) {
+                // Stop listening
+                recognition.stop();
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+            } else {
+                // Start listening
+                console.log('[Voice] Starting speech recognition...');
+                chatInput.value = ''; // Clear input when starting new voice session
+                chatInput.placeholder = 'Listening...';
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('[Voice] Error starting recognition:', e);
+                    addChatMessage('Error starting microphone. Please try again.', 'ai');
+                }
+            }
+        });
+
+        if (recognition) {
+            // Handle speech recognition results
+            recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript + ' ';
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+
+                // Use final transcript if available, otherwise show interim
+                if (finalTranscript.trim()) {
+                    chatInput.value = (chatInput.value + ' ' + finalTranscript).trim();
+                } else if (interimTranscript) {
+                    chatInput.placeholder = 'Listening: ' + interimTranscript;
+                }
+            };
+
+            // Handle recognition start/end
+            recognition.onstart = () => {
+                isListening = true;
+                voiceBtn.classList.add('listening');
+            };
+
+            recognition.onend = () => {
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+                chatInput.placeholder = 'Type or click mic...';
+
+                // Auto-send if we have captured speech
+                const message = chatInput.value.trim();
+                if (message) {
+                    console.log('[Voice] Auto-sending message from mic:', message);
+                    // Small delay to ensure UI updates
+                    setTimeout(() => {
+                        sendMessage();
+                    }, 100);
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                addChatMessage('Mic error: ' + event.error, 'ai');
+                isListening = false;
+                voiceBtn.classList.remove('listening');
+            };
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        
+        // CLEAR BUTTON LISTENER
+        clearBtn.addEventListener('click', () => {
+            chatLog.innerHTML = '';
+        });
+
+        chatInput.addEventListener('keypress', (e) => {
+            if(e.key === 'Enter') sendMessage();
+        });
+
+        // API base (use Flask backend). If you host backend elsewhere, change this.
+        const API_BASE = 'http://localhost:5000';
+
+        // Check server status on load
+        async function checkServerStatus() {
+            try {
+                const response = await fetch(`${API_BASE}/api/status`);
+                const data = await response.json();
+                console.log('[Status]', data);
+                
+                if (!data.api_key_configured) {
+                    addChatMessage('⚠️ WARNING: OpenAI API key not configured!', 'ai');
+                }
+            } catch (e) {
+                console.error('Failed to check status:', e);
+            }
+        }
+
+        // Check status when overlay is hidden
+        const originalOverlay = document.getElementById('overlay');
+        const observer = new MutationObserver(() => {
+            if (originalOverlay.classList.contains('hidden')) {
+                setTimeout(checkServerStatus, 500);
+                observer.disconnect();
+            }
+        });
+        observer.observe(originalOverlay, { attributes: true });
+
+        // Text-to-Speech function
+        function speakResponse(text) {
+            if ('speechSynthesis' in window) {
+                // Cancel any existing speech
+                speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.0;
+                utterance.volume = 1.0;
+                
+                // Add event listeners for better feedback
+                utterance.onstart = () => {
+                    console.log('[TTS] Speaking:', text);
+                    voiceBtn.classList.add('speaking');
+                };
+                
+                utterance.onend = () => {
+                    console.log('[TTS] Finished speaking');
+                    voiceBtn.classList.remove('speaking');
+                };
+                
+                utterance.onerror = (e) => {
+                    console.error('[TTS] Error:', e);
+                    voiceBtn.classList.remove('speaking');
+                };
+                
+                speechSynthesis.speak(utterance);
+            } else {
+                console.warn('[TTS] Speech synthesis not supported');
+            }
+        }
+
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if(!message) return;
+
+            addChatMessage(message, 'user');
+            chatInput.value = '';
+            sendBtn.disabled = true;
+            sendBtn.textContent = 'Sending...';
+
+            try {
+                console.log('[Chat] Sending message:', message);
+                const response = await fetch(`${API_BASE}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+
+                console.log('[Chat] Response status:', response.status);
+
+                // Check if response is ok
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[Chat] HTTP Error:', response.status, errorText);
+                    addChatMessage('❌ HTTP Error ' + response.status, 'ai');
+                    sendBtn.disabled = false;
+                    sendBtn.textContent = 'Send';
+                    return;
+                }
+
+                // Parse JSON response
+                let data;
+                try {
+                    data = await response.json();
+                    console.log('[Chat] Parsed response:', data);
+                } catch (parseError) {
+                    console.error('[Chat] JSON Parse Error:', parseError);
+                    addChatMessage('❌ Error: Invalid response from server', 'ai');
+                    sendBtn.disabled = false;
+                    sendBtn.textContent = 'Send';
+                    return;
+                }
+
+                // Handle response
+                if(data.success) {
+                    const aiResponse = data.response || 'I received your message but have no response.';
+                    
+                    // Only show fallback warning if actually using fallback AND response looks like fallback
+                    const isFallbackResponse = data.using_fallback && (
+                        aiResponse.includes('fallback mode') || 
+                        aiResponse.includes("I'm currently running in fallback") ||
+                        aiResponse.length < 50  // Very short responses might be fallback
+                    );
+                    
+                    if(isFallbackResponse) {
+                        console.warn('[Chat] Server is using fallback responses - API may not be working');
+                        addChatMessage(aiResponse, 'ai');
+                    } else {
+                        // Normal AI response - don't show fallback warning
+                        addChatMessage(aiResponse, 'ai');
+                    }
+                    
+                    // Always speak the response when using voice
+                    console.log('[Chat] Speaking AI response:', aiResponse);
+                    speakResponse(aiResponse);
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    console.error('[Chat] API Error:', errorMsg);
+                    // If server provided a fallback spoken message, show and speak it
+                    if (data.fallback) {
+                        addChatMessage(data.fallback, 'ai');
+                        speakResponse(data.fallback);
+                    } else {
+                        const errorResponse = 'Sorry, I encountered an error: ' + errorMsg;
+                        addChatMessage(errorResponse, 'ai');
+                        speakResponse(errorResponse);
+                    }
+                }
+            } catch(e) {
+                console.error('[Chat] Fetch Error:', e);
+                addChatMessage('❌ Connection error: ' + e.message, 'ai');
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'SEND';
+            }
+        }
+
+        async function initAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const src = audioCtx.createMediaStreamSource(stream);
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.8;
+                src.connect(analyser);
+                dataArray = new Uint8Array(analyser.frequencyBinCount);
+            } catch(e) { console.log("Audio Init Fail"); }
+        }
+
+        function initHands() {
+            const video = document.getElementById('video-preview');
+            const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+            hands.setOptions({ maxNumHands: 1, modelComplexity: 1, minDetectionConfidence: 0.5, minTrackingConfidence: 0.5 });
+            
+            hands.onResults(res => {
+                if(res.multiHandLandmarks && res.multiHandLandmarks.length > 0) {
+                    const lm = res.multiHandLandmarks[0];
+                    
+                    // 1. Detect Hand Position (Invert X due to mirror)
+                    handX = 1 - lm[9].x; 
+                    
+                    // 2. Detect Pinch
+                    const p1 = lm[4]; // Thumb
+                    const p2 = lm[8]; // Index
+                    const d = Math.hypot(p1.x-p2.x, p1.y-p2.y);
+                    // Map 0.02->0.15 to 1->0
+                    handPinch = Math.max(0, Math.min(1, 1 - (d-0.02)*8));
+
+                    document.getElementById('h-stat').innerText = "TRACKING";
+                    document.getElementById('h-stat').style.color = "#00ffff";
+                    document.getElementById('p-stat').innerText = Math.round(handPinch*100) + "%";
+                } else {
+                    document.getElementById('h-stat').innerText = "NO HAND";
+                    document.getElementById('h-stat').style.color = "#555";
+                    handPinch *= 0.9;
+                }
+            });
+
+            const cam = new Camera(video, {
+                onFrame: async () => { await hands.send({image: video}); },
+                width: 320, height: 240
+            });
+            cam.start();
+        }
+    </script>
+</body>
+</html>
